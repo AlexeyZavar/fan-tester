@@ -7,3 +7,33 @@
 body {
   @apply font-nunito;
 }
+
+th {
+  @apply p-2 border;
+}
+
+tr {
+  @apply transition duration-200;
+  @apply hover:bg-gray-50/50;
+}
+
+.card {
+  @apply p-4 bg-white rounded-3xl flex flex-col space-y-4;
+}
+
+.inp {
+  @apply w-full px-4 py-1;
+  @apply outline-none;
+  @apply text-xl;
+  @apply border rounded-3xl;
+  @apply transition duration-200;
+  @apply hover:bg-gray-200;
+}
+
+.btn {
+  @apply w-full p-2;
+  @apply text-2xl;
+  @apply border rounded-3xl;
+  @apply transition duration-200;
+  @apply hover:bg-gray-200;
+}

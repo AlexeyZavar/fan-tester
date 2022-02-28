@@ -1,44 +1,33 @@
 <template>
   <div class="flex justify-center">
-    <div class="grid grid-cols-2 gap-8">
-      <div class="card col-span-2">
-        <p>⚙️ Настройки и запуск</p>
-        <hr>
-        <input type="text" placeholder="Название" class="inp">
-        <div class="flex flex-row items-center space-x-2">
-          <input type="checkbox">
-          <p>Мягкий старт</p>
-        </div>
-        <hr>
-        <button class="btn">
-          Запустить бенчмарк
-        </button>
-      </div>
+    <div class="w-1/2 card">
+      <p>{{ item.name }}</p>
+      <hr>
       <div class="card">
         <p>⚡ Тяга от тока</p>
         <hr>
-        <chart-thrust-amperage :amperes="[1,2,3,4,5,6,7]" :thrust="[12,20,22,23,24,25,67]" />
+        <chart-thrust-amperage :amperes="item.thrust_amperes" :thrust="[12,20,22,23,24,25,67]" :height="200" />
       </div>
       <div class="card">
         <p>🔌 Тяга от мощности</p>
         <hr>
-        <chart-thrust-power :power="[33,77,88,90,92,95,99]" :thrust="[12,20,22,23,24,25,67]" />
+        <chart-thrust-power :power="item.thrust_power" :thrust="[12,20,22,23,24,25,67]" :height="200" />
       </div>
       <div class="card col-span-2">
         <p>🥇 Эффективность</p>
         <hr>
-        <chart-efficiency :efficiency="[0,22,33,44,55,44,33,22,22,21]" :height="200" />
+        <chart-efficiency :efficiency="item.efficiency" :height="200" />
       </div>
       <div class="card col-span-2">
         <p>📉 Результаты</p>
         <hr>
-        <p>🔥 Время разгона: 1 сек.</p>
+        <p>🔥 Время разгона: {{ item.warmup_time }} сек.</p>
         <div>
-          <p>⚡ Макс. ток: 100</p>
-          <p>✨ Макс. напряжение: 100</p>
-          <p>✨ Мин. напряжение: 100 </p>
-          <p>🔌 Макс. мощность: 100</p>
-          <p>✈️ Макс. тяга: 100</p>
+          <p>⚡ Макс. ток: {{ item.max_amperes }}</p>
+          <p>✨ Макс. напряжение: {{ item.max_voltage }}</p>
+          <p>✨ Мин. напряжение: {{ item.min_voltage }} </p>
+          <p>🔌 Макс. мощность: {{ item.max_power }}</p>
+          <p>✈️ Макс. тяга: {{ item.max_thrust }}</p>
         </div>
         <table class="mt-4 w-full table-auto">
           <thead>
@@ -107,12 +96,23 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'BenchmarkPage'
-}
+<script lang="ts">
+import Vue from 'vue'
+import { DatabaseItem } from '~/pages/database.vue'
+
+export default Vue.extend({
+  name: 'ItemPage',
+  async asyncData ({ $axios, route }) {
+    const item = await $axios.$get(`/database/${route.query.name}`)
+    return { item }
+  },
+  data () {
+    // @ts-ignore
+    const item: DatabaseItem = undefined
+
+    return {
+      item
+    }
+  }
+})
 </script>
-
-<style scoped>
-
-</style>

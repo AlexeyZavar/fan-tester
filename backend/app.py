@@ -1,23 +1,35 @@
-import json
-
 from flask import Flask, jsonify, request
+from flask_cors import CORS
+from sqlalchemy.orm import Session
 
+from database import DBSession, Benchmark
 from utils import run_benchmark, state
 
 app = Flask(__name__)
+CORS(app)
 
 
 @app.get('/database')
 def database():
-    with open('./data.json', 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    db: Session = DBSession()
+    data = db.query(Benchmark).all()
 
     return jsonify(data)
+
+
+@app.get('/database/<name>')
+def database_item(name: str):
+    db: Session = DBSession()
+    item = db.query(Benchmark).filter_by(name=name).one()
+
+    return jsonify(item)
 
 
 @app.post('/benchmark')
 def benchmark():
     run_benchmark(request.json['name'], request.json['soft_start'])
+
+    return '', 200
 
 
 @app.get('/benchmark')
