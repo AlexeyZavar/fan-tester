@@ -1,151 +1,224 @@
-#include <Arduino.h>
-#include <HX711.h>
-#include <ACS712.h>
+//
+// Created by AlexeyZavar on 09.03.2022.
+//
 #include <ArduinoJson.h>
+#include <Servo_Hardware_PWM.h>
 
-#define PIN_ENGINE 3
+#include "HX711.h"
+#include "ACS712.h"
 
-#define PIN_RPM 2
 
-#define PIN_DT1 9
-#define PIN_SCK1 8
-#define PIN_DT2 11
-#define PIN_SCK2 10
-#define PIN_DT3 13
-#define PIN_SCK3 12
+// ------------------------
+// PIN SETTINGS
+// ------------------------
 
-#define PIN_ACS A0
+// http://developer.alexanderklimov.ru/arduino/sensors/voltage.php
+// requires analog
+#define PIN_VOLTAGE A0
 
-const float CONV_RATE = 0.035274;
+// https://3d-diy.ru/wiki/arduino-datchiki/datchik-toka-acs712/
+// requires analog
+#define PIN_ACS712 A1
 
-volatile unsigned long previous_rpm = 0;
-volatile auto current_rpm = 0;
+// https://3d-diy.ru/wiki/arduino-datchiki/infrakrasnyj-datchik-prepyatstvij-yl-63/
+// requires digital
+#define PIN_YL63 2
 
-auto running = false;
+// https://3d-diy.ru/wiki/arduino-moduli/acp-dlya-analogovyx-vesov-hx711/
+// https://wiki.iarduino.ru/page/hx_711_with_tenzo/
+// requires digital
+#define PIN_HX711_1_DT 22
+#define PIN_HX711_1_SCK 23
+#define PIN_HX711_2_DT 24
+#define PIN_HX711_2_SCK 25
+#define PIN_HX711_3_DT 26
+#define PIN_HX711_3_SCK 27
 
-HX711 hx1;
-HX711 hx2;
-HX711 hx3;
+#define PIN_ENGINE 8
 
-ACS712* acs = new ACS712(ACS712_20A, PIN_ACS);
 
-void calc_rpm(){
-    current_rpm = (micros() - previous_rpm) / 1000000 * 60;
-    previous_rpm = micros();
-}
+// ------------------------
+// CONSTANTS
+// ------------------------
+#define OUNCES_TO_GRAMS 0.035274
+#define R1 30000.0
+#define R2 7500.0
+
+#define PWM_MIN 1000
+#define PWM_MAX 2000
+#define PWM_STEP ((PWM_MIN - PWM_MAX) / 100)
+
+// ------------------------
+// INSTANCES
+// ------------------------
+ACS712 acs712(ACS712_20A, PIN_ACS712);
+
+HX711 hx711_1;
+HX711 hx711_2;
+HX711 hx711_3;
+
+Servo engine;
+
+// ------------------------
+// VARIABLES
+// ------------------------
+unsigned long previous_rpm_interruption = 0;
+double current_rpm = 0;
+double delta = 0;
+
+unsigned long start_time = 0;
+double ramp_time = 0;
+
+void interruptionRPM();
 
 void setup() {
-    pinMode(PIN_ENGINE, OUTPUT);
-
-    pinMode(PIN_RPM, INPUT);
-
-    pinMode(PIN_DT1, INPUT);
-    pinMode(PIN_SCK1, INPUT);
-    pinMode(PIN_DT2, INPUT);
-    pinMode(PIN_SCK2, INPUT);
-    pinMode(PIN_DT3, INPUT);
-    pinMode(PIN_SCK3, INPUT);
-
-    pinMode(PIN_ACS, INPUT);
-
-    hx1.begin(PIN_DT1, PIN_SCK1);
-    hx1.set_scale();
-    hx1.tare();
-    hx2.begin(PIN_DT2, PIN_SCK2);
-    hx2.set_scale();
-    hx2.tare();
-    hx3.begin(PIN_DT3, PIN_SCK3);
-    hx3.set_scale();
-    hx3.tare();
-
-    acs->calibrate();
-
     Serial.begin(115200);
 
-    attachInterrupt(0, calc_rpm, FALLING);
+    // setup three HX711
+    hx711_1.begin(PIN_HX711_1_DT, PIN_HX711_1_SCK);
+    hx711_2.begin(PIN_HX711_2_DT, PIN_HX711_2_SCK);
+    hx711_3.begin(PIN_HX711_3_DT, PIN_HX711_3_SCK);
+
+    hx711_1.set_scale();
+    hx711_2.set_scale();
+    hx711_3.set_scale();
+
+    hx711_1.tare();
+    hx711_2.tare();
+    hx711_3.tare();
+
+    // todo: calibration factor
+    // hx711_1.set_scale(HX711_SCALE_FACTOR);
+    // hx711_2.set_scale(HX711_SCALE_FACTOR);
+    // hx711_3.set_scale(HX711_SCALE_FACTOR);
+
+    // setup DC
+    pinMode(PIN_VOLTAGE, INPUT);
+
+    // setup ACS712
+    pinMode(PIN_ACS712, INPUT);
+
+    // setup YL63
+    pinMode(PIN_YL63, INPUT);
+
+    // setup engine
+    engine.attach(PIN_ENGINE, PWM_MIN, PWM_MAX, 0);
+
+    // todo: setup interruptions (rpm...)
+    attachInterrupt(PIN_YL63, interruptionRPM, FALLING);
 }
 
-float get_tensometer1_data(){
-    return hx1.get_units(10) * CONV_RATE; // in grams
+void interruptionRPM() {
+    auto prev_rpm = current_rpm;
+    current_rpm = 60000.0 / (millis() - previous_rpm_interruption);
+
+    if (delta > 100 && ramp_time == 0) {
+        delta = abs(prev_rpm - current_rpm);
+    } else {
+        ramp_time = millis() - start_time;
+    }
 }
 
-float get_tensometer2_data(){
-    return hx2.get_units(10) * CONV_RATE; // in grams
+// ------------------------
+// UTILITIES
+// ------------------------
+
+float getVoltage() {
+    int value = analogRead(PIN_VOLTAGE);
+    float vout = (value * 5.0) / 1024.0;
+    float vin = vout / (R2 / (R1 + R2));
+
+    return vin;
 }
 
-float get_tensometer3_data(){
-    return hx3.get_units(10) * CONV_RATE; // in grams
+float getAmperes() {
+    return acs712.getCurrentDC();
 }
 
-float get_amperes(){
-    return acs->getCurrentAC();
+float getLoad(HX711 hx711) {
+    // todo: 1 or 10?
+    return hx711.get_units(10) * OUNCES_TO_GRAMS;
 }
 
-float get_voltage(){
-    return acs->getCurrentDC();
+float getTotalLoad() {
+    float total = 0.0;
+    total += getLoad(hx711_1);
+    total += getLoad(hx711_2);
+    total += getLoad(hx711_3);
+
+    return total;
 }
 
-void send_current(){
-    auto current_amperes = get_amperes();
-    auto current_voltage = get_voltage();
+void setEnginePWM(int val) {
+    auto realValue = map(val, PWM_MIN, PWM_MAX, 0, 180);
 
-    auto tensometer1 = get_tensometer1_data();
-    auto tensometer2 = get_tensometer2_data();
-    auto tensometer3 = get_tensometer3_data();
+    engine.write(realValue);
+}
 
-
+void sendSensorsData(bool running) {
     DynamicJsonDocument doc(1024);
+
     doc["current_rpm"] = current_rpm;
-    doc["current_amperes"] = current_amperes;
-    doc["current_voltage"] = current_voltage;
-    doc["tensometer1"] = tensometer1;
-    doc["tensometer2"] = tensometer2;
-    doc["tensometer3"] = tensometer3;
+    doc["current_amperes"] = getAmperes();
+    doc["current_voltage"] = getVoltage();
+    doc["tensometer1"] = getLoad(hx711_1);
+    doc["tensometer2"] = getLoad(hx711_2);
+    doc["tensometer3"] = getLoad(hx711_3);
     doc["running"] = running;
 
     serializeJson(doc, Serial);
+}
 
-    delay(1000);
+// ------------------------
+// MAIN LOOP
+// ------------------------
+
+void startBenchmark(bool softStart) {
+    // start up the engine
+    setEnginePWM(PWM_MAX);
+    delay(10);
+    setEnginePWM(PWM_MIN);
+
+    start_time = millis();
+    if (softStart) {
+        for (int i = PWM_MIN; i < PWM_MAX; i += PWM_STEP) {
+            setEnginePWM(i);
+            delay(10);
+
+            sendSensorsData(true);
+            delay(100);
+        }
+    } else {
+        engine.write(PWM_MAX);
+
+        delay(30000);
+    }
+
+    delay(3000);
+    sendSensorsData(false);
+
+    setEnginePWM(PWM_MIN);
+
 }
 
 void loop() {
-    if (Serial.available() && !running){
-        DynamicJsonDocument doc(1024);
-        deserializeJson(doc, Serial);
+//    if (Serial.available()){
+//        DynamicJsonDocument doc(1024);
+//        deserializeJson(doc, Serial);
+//
+//        const char* action = doc["action"];
+//        if (strcmp(action, "start_benchmark") == 0){
+//            startBenchmark(doc["params"]["soft_start"]);
+//        }
+//    }
+//    setEnginePWM(PWM_MAX);
+//    delay(10);
+//    setEnginePWM(PWM_MIN);
+//
+//    setEnginePWM(1200);
+    engine.write(180);
+    delay(10);
+    engine.write(60);
 
-        const bool* soft_start = doc["params"]["soft_start"];
-
-        running = true;
-
-        analogWrite(PIN_ENGINE, 2000);
-        delay(10);
-        analogWrite(PIN_ENGINE, 1000);
-
-        if (soft_start){
-            for (int i = 1000; i < 2000; ++i) {
-                analogWrite(PIN_ENGINE, i);
-
-                if (i % 100 == 0){
-                    send_current();
-                    delay(1000);
-                }
-
-                delay(1);
-            }
-        } else {
-            analogWrite(PIN_ENGINE, 2000);
-
-            for (int i = 0; i < 1000; ++i) {
-                send_current();
-                delay(2);
-            }
-        }
-
-        delay(5000);
-
-        running = false;
-        send_current();
-
-        analogWrite(PIN_ENGINE, 0);
-    }
+    delay(5000);
 }
