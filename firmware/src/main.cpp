@@ -7,6 +7,10 @@
 #include "HX711.h"
 #include "ACS712.h"
 
+// ------------------------
+// DEVELOPER OPTIONS
+// ------------------------
+//#define RELEASE
 
 // ------------------------
 // PIN SETTINGS
@@ -46,7 +50,9 @@
 
 #define PWM_MIN 1000
 #define PWM_MAX 2000
-#define PWM_STEP ((PWM_MIN - PWM_MAX) / 100)
+#define PWM_STEP ((PWM_MAX - PWM_MIN) / 100)
+
+#define BENCHMARK_TIME 30000
 
 // ------------------------
 // INSTANCES
@@ -72,8 +78,9 @@ double ramp_time = 0;
 void interruptionRPM();
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(9600);
 
+#ifdef RELEASE
     // setup three HX711
     hx711_1.begin(PIN_HX711_1_DT, PIN_HX711_1_SCK);
     hx711_2.begin(PIN_HX711_2_DT, PIN_HX711_2_SCK);
@@ -102,10 +109,11 @@ void setup() {
     pinMode(PIN_YL63, INPUT);
 
     // setup engine
-    engine.attach(PIN_ENGINE, PWM_MIN, PWM_MAX, 0);
+    engine.attach(PIN_ENGINE, PWM_MIN, PWM_MAX);
 
     // todo: setup interruptions (rpm...)
     attachInterrupt(PIN_YL63, interruptionRPM, FALLING);
+#endif
 }
 
 void interruptionRPM() {
@@ -124,20 +132,32 @@ void interruptionRPM() {
 // ------------------------
 
 float getVoltage() {
+#if RELEASE
     int value = analogRead(PIN_VOLTAGE);
     float vout = (value * 5.0) / 1024.0;
     float vin = vout / (R2 / (R1 + R2));
 
     return vin;
+#else
+    return 4;
+#endif
 }
 
 float getAmperes() {
+#ifdef RELEASE
     return acs712.getCurrentDC();
+#else
+    return 10;
+#endif
 }
 
 float getLoad(HX711 hx711) {
+#ifdef RELEASE
     // todo: 1 or 10?
     return hx711.get_units(10) * OUNCES_TO_GRAMS;
+#else
+    return 15;
+#endif
 }
 
 float getTotalLoad() {
@@ -150,14 +170,17 @@ float getTotalLoad() {
 }
 
 void setEnginePWM(int val) {
+#ifdef RELEASE
     auto realValue = map(val, PWM_MIN, PWM_MAX, 0, 180);
 
     engine.write(realValue);
+#endif
 }
 
-void sendSensorsData(bool running) {
+void sendSensorsData(bool running, int pwm) {
     DynamicJsonDocument doc(1024);
 
+    doc["pwm"] = pwm;
     doc["current_rpm"] = current_rpm;
     doc["current_amperes"] = getAmperes();
     doc["current_voltage"] = getVoltage();
@@ -167,16 +190,17 @@ void sendSensorsData(bool running) {
     doc["running"] = running;
 
     serializeJson(doc, Serial);
+    Serial.println();
 }
 
 // ------------------------
-// MAIN LOOP
+// MAIN LOOP & BENCHMARKS
 // ------------------------
 
 void startBenchmark(bool softStart) {
     // start up the engine
     setEnginePWM(PWM_MAX);
-    delay(10);
+    delay(100);
     setEnginePWM(PWM_MIN);
 
     start_time = millis();
@@ -185,40 +209,35 @@ void startBenchmark(bool softStart) {
             setEnginePWM(i);
             delay(10);
 
-            sendSensorsData(true);
+            if (i % 50 == 0) {
+                sendSensorsData(true, i);
+            }
             delay(100);
         }
     } else {
-        engine.write(PWM_MAX);
+        setEnginePWM(PWM_MAX);
+    }
 
-        delay(30000);
+    auto start = millis();
+    while (millis() - start < BENCHMARK_TIME) {
+        sendSensorsData(true, PWM_MAX);
+        delay(1000);
     }
 
     delay(3000);
-    sendSensorsData(false);
+    sendSensorsData(false, PWM_MAX);
 
     setEnginePWM(PWM_MIN);
-
 }
 
 void loop() {
-//    if (Serial.available()){
-//        DynamicJsonDocument doc(1024);
-//        deserializeJson(doc, Serial);
-//
-//        const char* action = doc["action"];
-//        if (strcmp(action, "start_benchmark") == 0){
-//            startBenchmark(doc["params"]["soft_start"]);
-//        }
-//    }
-//    setEnginePWM(PWM_MAX);
-//    delay(10);
-//    setEnginePWM(PWM_MIN);
-//
-//    setEnginePWM(1200);
-    engine.write(180);
-    delay(10);
-    engine.write(60);
+    if (Serial.available()) {
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, Serial);
 
-    delay(5000);
+        const char *action = doc["action"];
+        if (strcmp(action, "start_benchmark") == 0) {
+            startBenchmark(doc["params"]["soft_start"]);
+        }
+    }
 }

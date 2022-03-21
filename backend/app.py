@@ -14,7 +14,7 @@ def database():
     db: Session = DBSession()
     data = db.query(Benchmark).all()
 
-    return jsonify(data)
+    return jsonify([item.to_dict() for item in data])
 
 
 @app.get('/database/<name>')
@@ -22,7 +22,7 @@ def database_item(name: str):
     db: Session = DBSession()
     item = db.query(Benchmark).filter_by(name=name).one()
 
-    return jsonify(item)
+    return jsonify(item.to_dict())
 
 
 @app.post('/benchmark')

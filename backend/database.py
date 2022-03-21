@@ -3,11 +3,12 @@ import uuid
 from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, PickleType, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy_serializer import SerializerMixin
 
 Base = declarative_base()
 
 
-class Benchmark(Base):
+class Benchmark(Base, SerializerMixin):
     __tablename__ = 'Benchmarks'
 
     id = Column('id', Text(length=36), unique=True, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -22,7 +23,7 @@ class Benchmark(Base):
     max_voltage = Column('max_voltage', Float, nullable=False)
     min_voltage = Column('min_voltage', Float, nullable=False)
     max_power = Column('max_power', Float, nullable=False)
-    max_thrust = Column('max_power', Float, nullable=False)
+    max_thrust = Column('max_thrust', Float, nullable=False)
     data = Column('data', PickleType, nullable=False)
 
     def __str__(self):

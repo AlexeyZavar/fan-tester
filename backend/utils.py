@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from database import DBSession, Benchmark
 
 try:
-    arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1)
+    arduino = serial.Serial(port='COM9', baudrate=9600, timeout=.1)
 except:
     print('Arduino is not connected')
     exit(-1)
@@ -24,6 +24,9 @@ def run_benchmark(name: str, soft_start: bool):
 def benchmark(name: str, soft_start: bool):
     global state
 
+    if state is not None:
+        raise Exception('Benchmark already running')
+
     performed_on = time.time()
 
     data = {
@@ -38,16 +41,20 @@ def benchmark(name: str, soft_start: bool):
 
     states = []
 
-    state = json.loads(arduino.read_all().decode('utf-8'))
+    while not arduino.in_waiting: pass
+    state = json.loads(arduino.readline().decode('utf-8'))
     states.append(state)
     warmed = time.time()
+    print(time.time(), state)
 
     while state['running']:
-        state = json.loads(arduino.read_all().decode('utf-8'))
+        while not arduino.in_waiting: pass
+        state = json.loads(arduino.readline().decode('utf-8'))
         states.append(state)
+        print(time.time(), state)
 
     thrust_amperes = [(state['tensometer1'] / state['current_amperes']) for state in states]
-    thrust_power = [state['tensometer1'] + state['tensometer2'] + state['tensometer3'] for state in states]
+    thrust_power = [state['tensometer1'] for state in states]
     efficiency = [(20 / state['current_amperes']) for state in states]
 
     max_amperes = max(states, key=lambda x: x['current_amperes'])['current_amperes']
@@ -71,6 +78,8 @@ def benchmark(name: str, soft_start: bool):
     data.min_voltage = min_voltage
     data.max_power = max_power
     data.max_thrust = max_thrust
+
+    data.data = states
 
     db: Session = DBSession()
     db.add(data)

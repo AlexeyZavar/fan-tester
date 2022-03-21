@@ -4,13 +4,13 @@
       <div class="card col-span-2">
         <p>⚙️ Настройки и запуск</p>
         <hr>
-        <input type="text" placeholder="Название" class="inp">
+        <input v-model="name" class="inp" placeholder="Название" type="text">
         <div class="flex flex-row items-center space-x-2">
-          <input type="checkbox">
+          <input v-model="soft_start" type="checkbox">
           <p>Мягкий старт</p>
         </div>
         <hr>
-        <button class="btn">
+        <button class="btn" @click="startBenchmark">
           Запустить бенчмарк
         </button>
       </div>
@@ -107,10 +107,23 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'BenchmarkPage'
-}
+<script lang="ts">
+import Vue from 'vue'
+
+export default Vue.extend({
+  name: 'BenchmarkPage',
+  data () {
+    return {
+      name: '',
+      soft_start: true
+    }
+  },
+  methods: {
+    startBenchmark () {
+      this.$axios.post('/benchmark', { name: this.name, soft_start: this.soft_start })
+    }
+  }
+})
 </script>
 
 <style scoped>
