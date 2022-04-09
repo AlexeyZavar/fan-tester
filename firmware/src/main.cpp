@@ -5,12 +5,12 @@
 #include <Servo_Hardware_PWM.h>
 
 #include "HX711.h"
-#include "ACS712.h"
+#include "../lib/acs.cpp"
 
 // ------------------------
 // DEVELOPER OPTIONS
 // ------------------------
-//#define RELEASE
+#define RELEASE
 
 // ------------------------
 // PIN SETTINGS
@@ -22,7 +22,7 @@
 
 // https://3d-diy.ru/wiki/arduino-datchiki/datchik-toka-acs712/
 // requires analog
-#define PIN_ACS712 A1
+#define PIN_ACS758 A1
 
 // https://3d-diy.ru/wiki/arduino-datchiki/infrakrasnyj-datchik-prepyatstvij-yl-63/
 // requires digital
@@ -47,7 +47,10 @@
 #define OUNCES_TO_GRAMS 0.035274
 #define R1 30000.0
 #define R2 7500.0
+#define ADC_SCALE 1023.0
+#define VREF 5.0
 
+#define PWM_OFF 900
 #define PWM_MIN 1000
 #define PWM_MAX 2000
 #define PWM_STEP ((PWM_MAX - PWM_MIN) / 100)
@@ -57,7 +60,7 @@
 // ------------------------
 // INSTANCES
 // ------------------------
-ACS712 acs712(ACS712_20A, PIN_ACS712);
+ACS7XX_ALLEGRO acs758(false, PIN_ACS758, 5.0, 0.040);
 
 HX711 hx711_1;
 HX711 hx711_2;
@@ -77,6 +80,8 @@ double ramp_time = 0;
 
 void interruptionRPM();
 
+void setEnginePWM(int val);
+
 void setup() {
     Serial.begin(9600);
 
@@ -91,8 +96,8 @@ void setup() {
     hx711_3.set_scale();
 
     hx711_1.tare();
-    hx711_2.tare();
-    hx711_3.tare();
+//    hx711_2.tare();
+//    hx711_3.tare();
 
     // todo: calibration factor
     // hx711_1.set_scale(HX711_SCALE_FACTOR);
@@ -102,18 +107,22 @@ void setup() {
     // setup DC
     pinMode(PIN_VOLTAGE, INPUT);
 
-    // setup ACS712
-    pinMode(PIN_ACS712, INPUT);
+    // setup ACS758
+    acs758.begin();
+    pinMode(PIN_ACS758, INPUT);
 
     // setup YL63
     pinMode(PIN_YL63, INPUT);
 
     // setup engine
     engine.attach(PIN_ENGINE, PWM_MIN, PWM_MAX);
+    setEnginePWM(PWM_OFF);
 
     // todo: setup interruptions (rpm...)
-    attachInterrupt(PIN_YL63, interruptionRPM, FALLING);
+//    attachInterrupt(PIN_YL63, interruptionRPM, FALLING);
 #endif
+
+    randomSeed(analogRead(0));
 }
 
 void interruptionRPM() {
@@ -132,22 +141,37 @@ void interruptionRPM() {
 // ------------------------
 
 float getVoltage() {
-#if RELEASE
+#ifdef RELEASE
     int value = analogRead(PIN_VOLTAGE);
     float vout = (value * 5.0) / 1024.0;
     float vin = vout / (R2 / (R1 + R2));
 
     return vin;
 #else
-    return 4;
+    return random(3, 20);;
 #endif
 }
 
 float getAmperes() {
 #ifdef RELEASE
-    return acs712.getCurrentDC();
+//    float acOffset = 600;
+//    float scale = 40;
+//
+//    float rawSense = analogRead(PIN_ACS758);
+//    float voltageValue = (rawSense / 1023.0) * 5000;
+//    float amp = ((voltageValue - acOffset) / scale);
+//
+//    return amp;
+    float FACTOR = 20.0 / 1000;
+    float QOV = 0.5 / 5.0;
+
+    float voltage_raw = (5.0 / 1023.0) * analogRead(PIN_ACS758);// Read the voltage from sensor
+    float voltage = voltage_raw - QOV + 0.007 ;// 0.007 is a value to make voltage zero when there is no current
+    float current = voltage / FACTOR;
+
+    return current;
 #else
-    return 10;
+    return random(3, 20);
 #endif
 }
 
@@ -156,7 +180,7 @@ float getLoad(HX711 hx711) {
     // todo: 1 or 10?
     return hx711.get_units(10) * OUNCES_TO_GRAMS;
 #else
-    return 15;
+    return random(3, 20);;
 #endif
 }
 
@@ -171,7 +195,7 @@ float getTotalLoad() {
 
 void setEnginePWM(int val) {
 #ifdef RELEASE
-    auto realValue = map(val, PWM_MIN, PWM_MAX, 0, 180);
+    auto realValue = map(val, PWM_MIN, PWM_MAX, 0, 100);
 
     engine.write(realValue);
 #endif
@@ -185,8 +209,10 @@ void sendSensorsData(bool running, int pwm) {
     doc["current_amperes"] = getAmperes();
     doc["current_voltage"] = getVoltage();
     doc["tensometer1"] = getLoad(hx711_1);
-    doc["tensometer2"] = getLoad(hx711_2);
-    doc["tensometer3"] = getLoad(hx711_3);
+//    doc["tensometer2"] = getLoad(hx711_2);
+//    doc["tensometer3"] = getLoad(hx711_3);
+    doc["tensometer2"] = 0;
+    doc["tensometer3"] = analogRead(PIN_ACS758);
     doc["running"] = running;
 
     serializeJson(doc, Serial);
@@ -227,7 +253,15 @@ void startBenchmark(bool softStart) {
     delay(3000);
     sendSensorsData(false, PWM_MAX);
 
-    setEnginePWM(PWM_MIN);
+    setEnginePWM(PWM_OFF);
+}
+
+void calibrate() {
+    delay(2000);
+
+    setEnginePWM(PWM_MAX + 200);
+    delay(5000);
+    setEnginePWM(PWM_OFF);
 }
 
 void loop() {
@@ -238,6 +272,8 @@ void loop() {
         const char *action = doc["action"];
         if (strcmp(action, "start_benchmark") == 0) {
             startBenchmark(doc["params"]["soft_start"]);
+        } else if (strcmp(action, "calibrate") == 0) {
+            calibrate();
         }
     }
 }

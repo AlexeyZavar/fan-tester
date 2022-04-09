@@ -1,4 +1,5 @@
 import json
+import random
 import time
 from threading import Thread
 
@@ -7,13 +8,46 @@ from sqlalchemy.orm import Session
 
 from database import DBSession, Benchmark
 
+
+class FakeArduino:
+    def __init__(self):
+        self.pwm = 1000
+        self.running = True
+
+        self.in_waiting = 1
+
+    def write(self, *args):
+        pass
+
+    def readline(self):
+        time.sleep(1)
+        self.pwm += 50
+
+        if self.pwm > 2000:
+            self.running = False
+
+        return (json.dumps({
+            'pwm': self.pwm,
+            'current_rpm': random.randint(5, 20),
+            'current_amperes': random.randint(5, 20),
+            'current_voltage': random.randint(5, 20),
+            'tensometer1': random.randint(5, 20),
+            'tensometer2': random.randint(5, 20),
+            'tensometer3': random.randint(5, 20),
+            'running': self.running,
+        }) + '\n').encode('utf-8')
+
+
 try:
     arduino = serial.Serial(port='COM9', baudrate=9600, timeout=.1)
 except:
-    print('Arduino is not connected')
-    exit(-1)
+    print('--------------------------')
+    print(' Arduino is not connected')
+    print('--------------------------')
 
-state = None
+    arduino = FakeArduino()
+
+states = []
 
 
 def run_benchmark(name: str, soft_start: bool):
@@ -22,9 +56,9 @@ def run_benchmark(name: str, soft_start: bool):
 
 
 def benchmark(name: str, soft_start: bool):
-    global state
+    global states
 
-    if state is not None:
+    if states:
         raise Exception('Benchmark already running')
 
     performed_on = time.time()
@@ -39,8 +73,6 @@ def benchmark(name: str, soft_start: bool):
 
     arduino.write(s)
 
-    states = []
-
     while not arduino.in_waiting: pass
     state = json.loads(arduino.readline().decode('utf-8'))
     states.append(state)
@@ -53,31 +85,10 @@ def benchmark(name: str, soft_start: bool):
         states.append(state)
         print(time.time(), state)
 
-    thrust_amperes = [(state['tensometer1'] / state['current_amperes']) for state in states]
-    thrust_power = [state['tensometer1'] for state in states]
-    efficiency = [(20 / state['current_amperes']) for state in states]
-
-    max_amperes = max(states, key=lambda x: x['current_amperes'])['current_amperes']
-    max_voltage = max(states, key=lambda x: x['current_voltage'])['current_voltage']
-    min_voltage = min(states, key=lambda x: x['current_voltage'])['current_voltage']
-    max_power = max(states, key=lambda x: x['current_voltage'])['current_voltage']
-    max_thrust = max(states, key=lambda x: x['tensometer1'])['tensometer1']
-
     data = Benchmark()
     data.name = name
     data.soft_start = soft_start
     data.performed_on = performed_on
-
-    data.thrust_amperes = thrust_amperes
-    data.thrust_power = thrust_power
-    data.efficiency = efficiency
-    data.warmup_time = warmed - performed_on
-
-    data.max_amperes = max_amperes
-    data.max_voltage = max_voltage
-    data.min_voltage = min_voltage
-    data.max_power = max_power
-    data.max_thrust = max_thrust
 
     data.data = states
 
@@ -85,4 +96,13 @@ def benchmark(name: str, soft_start: bool):
     db.add(data)
     db.commit()
 
-    state = None
+    states = []
+
+
+def run_calibrate():
+    data = {
+        'action': 'calibrate'
+    }
+    s = json.dumps(data)
+
+    arduino.write(s.encode('utf-8'))

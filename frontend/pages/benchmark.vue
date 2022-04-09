@@ -13,95 +13,19 @@
         <button class="btn" @click="startBenchmark">
           Запустить бенчмарк
         </button>
-      </div>
-      <div class="card">
-        <p>⚡ Тяга от тока</p>
-        <hr>
-        <chart-thrust-amperage :amperes="[1,2,3,4,5,6,7]" :thrust="[12,20,22,23,24,25,67]" />
+        <button class="btn" @click="calibrate">
+          Откалибровать (ОСТОРОЖНО)
+        </button>
       </div>
       <div class="card">
         <p>🔌 Тяга от мощности</p>
         <hr>
-        <chart-thrust-power :power="[33,77,88,90,92,95,99]" :thrust="[12,20,22,23,24,25,67]" />
+        <chart-thrust-power :chart-data="thrust_power_data" />
       </div>
-      <div class="card col-span-2">
-        <p>🥇 Эффективность</p>
+      <div class="card">
+        <p>⚡ Тяга от тока</p>
         <hr>
-        <chart-efficiency :efficiency="[0,22,33,44,55,44,33,22,22,21]" :height="200" />
-      </div>
-      <div class="card col-span-2">
-        <p>📉 Результаты</p>
-        <hr>
-        <p>🔥 Время разгона: 1 сек.</p>
-        <div>
-          <p>⚡ Макс. ток: 100</p>
-          <p>✨ Макс. напряжение: 100</p>
-          <p>✨ Мин. напряжение: 100 </p>
-          <p>🔌 Макс. мощность: 100</p>
-          <p>✈️ Макс. тяга: 100</p>
-        </div>
-        <table class="mt-4 w-full table-auto">
-          <thead>
-            <tr class="bg-gray-50">
-              <th>_</th>
-              <th>T</th>
-              <th>P</th>
-              <th>I</th>
-              <th>V</th>
-              <th>t°</th>
-            </tr>
-          </thead>
-          <tbody class="">
-            <tr>
-              <th>5%</th>
-              <th>11</th>
-              <th>22</th>
-              <th>33</th>
-              <th>44</th>
-              <th>55</th>
-            </tr>
-            <tr>
-              <th>10%</th>
-              <th>11</th>
-              <th>22</th>
-              <th>33</th>
-              <th>44</th>
-              <th>55</th>
-            </tr>
-            <tr>
-              <th>15%</th>
-              <th>11</th>
-              <th>22</th>
-              <th>33</th>
-              <th>44</th>
-              <th>55</th>
-            </tr>
-            <tr>
-              <th>20%</th>
-              <th>11</th>
-              <th>22</th>
-              <th>33</th>
-              <th>44</th>
-              <th>55</th>
-            </tr>
-            <tr>
-              <th>25%</th>
-              <th>11</th>
-              <th>22</th>
-              <th>33</th>
-              <th>44</th>
-              <th>55</th>
-            </tr>
-            <tr>
-              <th>30%</th>
-              <th>11</th>
-              <th>22</th>
-              <th>33</th>
-              <th>44</th>
-              <th>55</th>
-            </tr>
-          </tbody>
-        </table>
+        <chart-thrust-amperage :chart-data="thrust_amperage_data" />
       </div>
     </div>
   </div>
@@ -110,17 +34,90 @@
 <script lang="ts">
 import Vue from 'vue'
 
+interface State {
+  pwm: number
+  current_rpm: number
+  current_amperes: number
+  current_voltage: number
+  tensometer1: number
+  tensometer2: number
+  tensometer3: number
+  running: boolean
+}
+
 export default Vue.extend({
   name: 'BenchmarkPage',
   data () {
+    const state: State[] = []
+
     return {
       name: '',
-      soft_start: true
+      soft_start: true,
+      state
+    }
+  },
+  computed: {
+    amperes () {
+      const res = []
+
+      for (const item of this.state) {
+        res.push(item.current_amperes)
+      }
+
+      return res
+    },
+    power () {
+      const res = []
+
+      for (const item of this.state) {
+        const power = item.current_voltage * item.current_amperes
+        res.push(power)
+      }
+
+      return res
+    },
+    thrust () {
+      const res = []
+
+      for (const item of this.state) {
+        res.push(item.tensometer1)
+      }
+
+      return res
+    },
+    efficiency () {
+      const res = []
+
+      const thrust = this.thrust
+      const power = this.power
+      for (let i = 0; i < this.state.length; ++i) {
+        res.push(thrust[i] / power[i])
+      }
+
+      return res
+    },
+    thrust_power_data () {
+      return { labels: this.thrust, datasets: [{ label: 'Мощность (Вт)', fill: false, lineTension: 0.1, borderColor: '#67e8f9', data: this.power }] }
+    },
+    thrust_amperage_data () {
+      return { labels: this.thrust, datasets: [{ label: 'Ток (А)', fill: false, lineTension: 0.1, borderColor: '#67baf9', data: this.amperes }] }
     }
   },
   methods: {
-    startBenchmark () {
-      this.$axios.post('/benchmark', { name: this.name, soft_start: this.soft_start })
+    async startBenchmark () {
+      await this.$axios.post('/benchmark', { name: this.name, soft_start: this.soft_start })
+
+      const pooling = setInterval(async () => {
+        this.state = await this.$axios.$get('/benchmark')
+
+        if (!this.state[this.state.length - 1].running) {
+          clearInterval(pooling)
+          this.state = []
+        }
+      }, 1500)
+    },
+    async calibrate () {
+      await this.$axios.post('/calibrate')
     }
   }
 })

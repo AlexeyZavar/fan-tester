@@ -3,7 +3,7 @@ from flask_cors import CORS
 from sqlalchemy.orm import Session
 
 from database import DBSession, Benchmark
-from utils import run_benchmark, state
+from utils import run_benchmark, run_calibrate, states
 
 app = Flask(__name__)
 CORS(app)
@@ -34,7 +34,14 @@ def benchmark():
 
 @app.get('/benchmark')
 def benchmark_state():
-    return jsonify(state)
+    return jsonify(states)
+
+
+@app.post('/calibrate')
+def calibrate():
+    run_calibrate()
+
+    return '', 200
 
 
 if __name__ == '__main__':
