@@ -42,7 +42,7 @@ try:
     arduino = serial.Serial(port='COM9', baudrate=9600, timeout=.1)
 except:
     print('--------------------------')
-    print(' Arduino is not connected')
+    print(' Arduino is not connected ')
     print('--------------------------')
 
     arduino = FakeArduino()
