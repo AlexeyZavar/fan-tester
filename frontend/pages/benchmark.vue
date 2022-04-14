@@ -1,31 +1,33 @@
 <template>
   <div class="flex justify-center">
-    <div class="grid grid-cols-2 gap-8">
-      <div class="card col-span-2">
+    <div class="w-7/12 flex flex-col gap-8">
+      <div class="card">
         <p>⚙️ Настройки и запуск</p>
         <hr>
-        <input v-model="name" class="inp" placeholder="Название" type="text">
+        <input :disabled="!!state.length" v-model="name" class="inp" placeholder="Название" type="text">
         <div class="flex flex-row items-center space-x-2">
-          <input v-model="soft_start" type="checkbox">
-          <p>Мягкий старт</p>
+          <input :disabled="!!state.length" v-model="soft_start" type="checkbox">
+          <p>💡 Мягкий старт</p>
         </div>
         <hr>
-        <button class="btn" @click="startBenchmark">
+        <button :disabled="!!state.length" class="btn" @click="startBenchmark">
           Запустить бенчмарк
         </button>
-        <button class="btn" @click="calibrate">
-          Откалибровать (ОСТОРОЖНО)
+        <button :disabled="!!state.length" class="btn" @click="calibrate">
+          ⚡ Откалибровать ⚡
         </button>
       </div>
-      <div class="card">
-        <p>🔌 Тяга от мощности</p>
-        <hr>
-        <chart-thrust-power :chart-data="thrust_power_data" />
-      </div>
-      <div class="card">
-        <p>⚡ Тяга от тока</p>
-        <hr>
-        <chart-thrust-amperage :chart-data="thrust_amperage_data" />
+      <div v-if="state.length" class="grid grid-cols-2 gap-8">
+        <div class="card">
+          <p>🔌 Тяга от мощности</p>
+          <hr>
+          <chart-thrust-power :chart-data="thrust_power_data" />
+        </div>
+        <div class="card">
+          <p>⚡ Тяга от тока</p>
+          <hr>
+          <chart-thrust-amperage :chart-data="thrust_amperage_data" />
+        </div>
       </div>
     </div>
   </div>
@@ -97,14 +99,24 @@ export default Vue.extend({
       return res
     },
     thrust_power_data () {
-      return { labels: this.thrust, datasets: [{ label: 'Мощность (Вт)', fill: false, lineTension: 0.1, borderColor: '#67e8f9', data: this.power }] }
+      return {
+        labels: this.thrust,
+        datasets: [{ label: 'Мощность (Вт)', fill: false, lineTension: 0.1, borderColor: '#67e8f9', data: this.power }]
+      }
     },
     thrust_amperage_data () {
-      return { labels: this.thrust, datasets: [{ label: 'Ток (А)', fill: false, lineTension: 0.1, borderColor: '#67baf9', data: this.amperes }] }
+      return {
+        labels: this.thrust,
+        datasets: [{ label: 'Ток (А)', fill: false, lineTension: 0.1, borderColor: '#67baf9', data: this.amperes }]
+      }
     }
   },
   methods: {
     async startBenchmark () {
+      if (!this.name) {
+        return
+      }
+
       await this.$axios.post('/benchmark', { name: this.name, soft_start: this.soft_start })
 
       const pooling = setInterval(async () => {

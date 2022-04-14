@@ -26,7 +26,7 @@ class FakeArduino:
         if self.pwm > 2000:
             self.running = False
 
-        return (json.dumps({
+        res = (json.dumps({
             'pwm': self.pwm,
             'current_rpm': random.randint(5, 20),
             'current_amperes': random.randint(5, 20),
@@ -37,9 +37,15 @@ class FakeArduino:
             'running': self.running,
         }) + '\n').encode('utf-8')
 
+        if self.pwm > 2000:
+            self.running = True
+            self.pwm = 1000
+
+        return res
+
 
 try:
-    arduino = serial.Serial(port='COM9', baudrate=9600, timeout=.1)
+    arduino = serial.Serial(port='COM3', baudrate=9600, timeout=.1)
 except:
     print('--------------------------')
     print(' Arduino is not connected ')
@@ -90,13 +96,15 @@ def benchmark(name: str, soft_start: bool):
     data.soft_start = soft_start
     data.performed_on = performed_on
 
+    data.warmup_time = warmed - performed_on
+
     data.data = states
 
     db: Session = DBSession()
     db.add(data)
     db.commit()
 
-    states = []
+    states.clear()
 
 
 def run_calibrate():

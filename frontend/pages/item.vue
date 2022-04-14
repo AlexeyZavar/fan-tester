@@ -16,13 +16,13 @@
       <div class="card col-span-2">
         <p>📉 Результаты</p>
         <hr>
-        <p>🔥 Время разгона: {{ item.warmup_time }} сек.</p>
+        <p>🔥 Время разгона: {{ item.warmup_time.toFixed(4) }} сек.</p>
         <div>
-          <p>⚡ Макс. ток: {{ item.max_amperes }}</p>
-          <p>✨ Макс. напряжение: {{ item.max_voltage }}</p>
-          <p>✨ Мин. напряжение: {{ item.min_voltage }} </p>
-          <p>🔌 Макс. мощность: {{ item.max_power }}</p>
-          <p>✈️ Макс. тяга: {{ item.max_thrust }}</p>
+          <p>⚡ Макс. ток: {{ max_amperes }} А</p>
+          <p>✨ Макс. напряжение: {{ max_voltage }} В</p>
+          <p>✨ Мин. напряжение: {{ min_voltage }} В</p>
+          <p>🔌 Макс. мощность: {{ max_power }} Вт</p>
+          <p>✈️ Макс. тяга: {{ max_thrust }} кг</p>
         </div>
         <table class="mt-4 w-full table-auto">
           <thead>
@@ -58,7 +58,7 @@ import { DatabaseItem } from '~/pages/database.vue'
 export default Vue.extend({
   name: 'ItemPage',
   async asyncData ({ $axios, route }) {
-    const item = await $axios.$get(`/database/${route.query.name}`)
+    const item = await $axios.$get(`/database/${route.query.id}`)
     return { item, state: item.data }
   },
   data () {
@@ -121,6 +121,21 @@ export default Vue.extend({
         labels: this.thrust,
         datasets: [{ label: 'Ток (А)', fill: false, lineTension: 0.1, borderColor: '#67baf9', data: this.amperes }]
       }
+    },
+    max_amperes () {
+      return Math.max(...this.amperes)
+    },
+    max_voltage () {
+      return Math.max(...this.state.map(item => item.current_voltage))
+    },
+    min_voltage () {
+      return Math.min(...this.state.map(item => item.current_voltage))
+    },
+    max_power () {
+      return Math.max(...this.power)
+    },
+    max_thrust () {
+      return Math.max(...this.thrust)
     }
   }
 })

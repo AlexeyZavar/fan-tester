@@ -12,9 +12,10 @@ class Benchmark(Base, SerializerMixin):
     __tablename__ = 'Benchmarks'
 
     id = Column('id', Text(length=36), unique=True, primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column('name', String, nullable=False, unique=True)
+    name = Column('name', String, nullable=False, unique=False)
     soft_start = Column('soft_start', Boolean, nullable=False)
     performed_on = Column('performed_on', Integer, nullable=False)
+    warmup_time = Column('warmup_time', Float, nullable=False)
     data = Column('data', PickleType, nullable=False)
 
     def __str__(self):

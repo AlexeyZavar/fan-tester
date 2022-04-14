@@ -1,14 +1,14 @@
 <template>
   <div class="flex justify-center">
-    <div class=" grid grid-cols-2 gap-8">
-      <div v-for="item in items" :key="item.name" class="card">
+    <div class="grid grid-cols-2 gap-8">
+      <div v-for="item in items" :key="item.id" class="card">
         <p>{{ item.name }}</p>
         <hr>
         <p class="mt-4">
           ⏰ Тестировалось: {{ new Date(item.performed_on * 1000).toLocaleString() }}
         </p>
-        <button class="btn" @click="$router.push(`/item?name=${item.name}`)">
-          Подробнее
+        <button class="btn" @click="$router.push(`/item?id=${item.id}`)">
+          Подробнее →
         </button>
       </div>
     </div>
@@ -19,6 +19,7 @@
 import Vue from 'vue'
 
 export interface DatabaseItem {
+  id: string
   name: string
   soft_start: boolean
   performed_on: number

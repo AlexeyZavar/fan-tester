@@ -17,10 +17,13 @@ def database():
     return jsonify([item.to_dict() for item in data])
 
 
-@app.get('/database/<name>')
-def database_item(name: str):
+@app.get('/database/<id>')
+def database_item(id: str):
     db: Session = DBSession()
-    item = db.query(Benchmark).filter_by(name=name).one()
+    item = db.query(Benchmark).get(id)
+
+    if item is None:
+        return '', 404
 
     return jsonify(item.to_dict())
 
@@ -28,6 +31,7 @@ def database_item(name: str):
 @app.post('/benchmark')
 def benchmark():
     run_benchmark(request.json['name'], request.json['soft_start'])
+    states.clear()
 
     return '', 200
 

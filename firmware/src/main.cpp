@@ -21,7 +21,7 @@
 #define PIN_VOLTAGE A0
 
 // https://3d-diy.ru/wiki/arduino-datchiki/datchik-toka-acs712/
-// requires analog
+// requires analog (100B)
 #define PIN_ACS758 A1
 
 // https://3d-diy.ru/wiki/arduino-datchiki/infrakrasnyj-datchik-prepyatstvij-yl-63/
@@ -60,7 +60,7 @@
 // ------------------------
 // INSTANCES
 // ------------------------
-ACS7XX_ALLEGRO acs758(false, PIN_ACS758, 5.0, 0.040);
+ACS7XX_ALLEGRO acs758(false, PIN_ACS758, 5.0, 20.0);
 
 HX711 hx711_1;
 HX711 hx711_2;
@@ -154,22 +154,25 @@ float getVoltage() {
 
 float getAmperes() {
 #ifdef RELEASE
-//    float acOffset = 600;
-//    float scale = 40;
-//
-//    float rawSense = analogRead(PIN_ACS758);
-//    float voltageValue = (rawSense / 1023.0) * 5000;
-//    float amp = ((voltageValue - acOffset) / scale);
-//
-//    return amp;
-    float FACTOR = 20.0 / 1000;
-    float QOV = 0.5 / 5.0;
+    float acOffset = 2500;
+    float scale = 20;
 
-    float voltage_raw = (5.0 / 1023.0) * analogRead(PIN_ACS758);// Read the voltage from sensor
-    float voltage = voltage_raw - QOV + 0.007 ;// 0.007 is a value to make voltage zero when there is no current
-    float current = voltage / FACTOR;
+    float rawSense = analogRead(PIN_ACS758);
+    float voltageValue = (rawSense / 1023.0) * 5000;
+    float amp = ((voltageValue - acOffset) / scale);
 
-    return current;
+    return amp;
+//    float FACTOR = 20.0 / 1000;
+//    float QOV = 0.5 / 5.0;
+//
+//    float voltage_raw = (5.0 / 1023.0) * analogRead(PIN_ACS758);// Read the voltage from sensor
+//    float voltage = voltage_raw - QOV + 0.007 ;// 0.007 is a value to make voltage zero when there is no current
+//    float current = voltage / FACTOR;
+
+    double current2 = 0;
+    acs758.instantCurrent(&current2);
+
+    return current2;
 #else
     return random(3, 20);
 #endif
