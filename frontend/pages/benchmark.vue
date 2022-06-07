@@ -4,9 +4,9 @@
       <div class="card">
         <p>⚙️ Настройки и запуск</p>
         <hr>
-        <input :disabled="!!state.length" v-model="name" class="inp" placeholder="Название" type="text">
+        <input v-model="name" :disabled="!!state.length" class="inp" placeholder="Название" type="text">
         <div class="flex flex-row items-center space-x-2">
-          <input :disabled="!!state.length" v-model="soft_start" type="checkbox">
+          <input v-model="soft_start" :disabled="!!state.length" type="checkbox">
           <p>💡 Мягкий старт</p>
         </div>
         <hr>

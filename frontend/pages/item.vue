@@ -22,7 +22,7 @@
           <p>✨ Макс. напряжение: {{ max_voltage }} В</p>
           <p>✨ Мин. напряжение: {{ min_voltage }} В</p>
           <p>🔌 Макс. мощность: {{ max_power }} Вт</p>
-          <p>✈️ Макс. тяга: {{ max_thrust }} кг</p>
+          <p>✈️ Макс. тяга: {{ max_thrust }} г</p>
         </div>
         <table class="mt-4 w-full table-auto">
           <thead>
@@ -32,7 +32,6 @@
               <th>P (Вт)</th>
               <th>I (А)</th>
               <th>U (В)</th>
-              <th>t°</th>
             </tr>
           </thead>
           <tbody class="">
@@ -42,7 +41,6 @@
               <th>{{ (state_item.current_voltage * state_item.current_amperes).toFixed(4) }}</th>
               <th>{{ state_item.current_amperes.toFixed(3) }}</th>
               <th>{{ state_item.current_voltage.toFixed(3) }}</th>
-              <th>-</th>
             </tr>
           </tbody>
         </table>

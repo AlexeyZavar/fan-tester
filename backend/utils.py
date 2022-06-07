@@ -14,6 +14,11 @@ class FakeArduino:
         self.pwm = 1000
         self.running = True
 
+        self.tensometer1 = 10.221
+        self.amperes = 10.821
+        self.voltage = 14.652
+        self.iteration = 0
+
         self.in_waiting = 1
 
     def write(self, *args):
@@ -23,21 +28,33 @@ class FakeArduino:
         time.sleep(1)
         self.pwm += 50
 
-        if self.pwm > 2000:
+        if self.pwm > 2000 and self.iteration > 10:
             self.running = False
+            self.iteration = 0
+            self.tensometer1 = 10.221
+            self.amperes = 10.821
+            self.voltage = 9.731
+        else:
+            if self.iteration <= 10:
+                self.iteration += 1
+
+            self.amperes += random.randint(10, 27) * 0.1
+            self.voltage += random.randint(-200, 200) * 0.0001
+            self.tensometer1 += random.randint(1000, 2000) * 0.1
+
 
         res = (json.dumps({
             'pwm': self.pwm,
-            'current_rpm': random.randint(5, 20),
-            'current_amperes': random.randint(5, 20),
-            'current_voltage': random.randint(5, 20),
-            'tensometer1': random.randint(5, 20),
-            'tensometer2': random.randint(5, 20),
-            'tensometer3': random.randint(5, 20),
+            'current_rpm': 1000,
+            'current_amperes': self.amperes,
+            'current_voltage': self.voltage,
+            'tensometer1': self.tensometer1,
+            'tensometer2': 0,
+            'tensometer3': 0,
             'running': self.running,
         }) + '\n').encode('utf-8')
 
-        if self.pwm > 2000:
+        if self.pwm >= 2000:
             self.running = True
             self.pwm = 1000
 
@@ -88,7 +105,8 @@ def benchmark(name: str, soft_start: bool):
     while state['running']:
         while not arduino.in_waiting: pass
         state = json.loads(arduino.readline().decode('utf-8'))
-        states.append(state)
+        if state['pwm'] < 2000:
+            states.append(state)
         print(time.time(), state)
 
     data = Benchmark()

@@ -5,7 +5,7 @@
 #include <Servo_Hardware_PWM.h>
 
 #include "HX711.h"
-#include "../lib/acs.cpp"
+//#include "../lib/acs.cpp"
 
 // ------------------------
 // DEVELOPER OPTIONS
@@ -60,7 +60,7 @@
 // ------------------------
 // INSTANCES
 // ------------------------
-ACS7XX_ALLEGRO acs758(false, PIN_ACS758, 5.0, 20.0);
+//ACS7XX_ALLEGRO acs758(false, PIN_ACS758, 5.0, 20.0);
 
 HX711 hx711_1;
 HX711 hx711_2;
@@ -108,7 +108,7 @@ void setup() {
     pinMode(PIN_VOLTAGE, INPUT);
 
     // setup ACS758
-    acs758.begin();
+//    acs758.begin();
     pinMode(PIN_ACS758, INPUT);
 
     // setup YL63
@@ -169,10 +169,10 @@ float getAmperes() {
 //    float voltage = voltage_raw - QOV + 0.007 ;// 0.007 is a value to make voltage zero when there is no current
 //    float current = voltage / FACTOR;
 
-    double current2 = 0;
-    acs758.instantCurrent(&current2);
+//    double current2 = 0;
+//    acs758.instantCurrent(&current2);
 
-    return current2;
+//    return current2;
 #else
     return random(3, 20);
 #endif
