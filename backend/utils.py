@@ -105,8 +105,7 @@ def benchmark(name: str, soft_start: bool):
     while state['running']:
         while not arduino.in_waiting: pass
         state = json.loads(arduino.readline().decode('utf-8'))
-        if state['pwm'] < 2000:
-            states.append(state)
+        states.append(state)
         print(time.time(), state)
 
     data = Benchmark()
