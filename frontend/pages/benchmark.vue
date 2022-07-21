@@ -120,9 +120,16 @@ export default Vue.extend({
       await this.$axios.post('/benchmark', { name: this.name, soft_start: this.soft_start })
 
       const pooling = setInterval(async () => {
-        this.state = await this.$axios.$get('/benchmark')
+        try {
+          this.state = await this.$axios.$get('/benchmark')
 
-        if (!this.state[this.state.length - 1].running) {
+          console.log(this.state)
+
+          if (!this.state[this.state.length - 1].running) {
+            clearInterval(pooling)
+            this.state = []
+          }
+        } catch {
           clearInterval(pooling)
           this.state = []
         }

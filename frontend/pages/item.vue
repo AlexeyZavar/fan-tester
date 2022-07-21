@@ -37,7 +37,7 @@
           <tbody class="">
             <tr v-for="(state_item, i) in state" :key="i">
               <th>{{ ((state_item.pwm - 1000) / 1000 * 100).toFixed(0) }} %</th>
-              <th>{{ state_item.tensometer1 }}</th>
+              <th>{{ state_item.tensometer1.toFixed(3) }}</th>
               <th>{{ (state_item.current_voltage * state_item.current_amperes).toFixed(4) }}</th>
               <th>{{ state_item.current_amperes.toFixed(3) }}</th>
               <th>{{ state_item.current_voltage.toFixed(3) }}</th>

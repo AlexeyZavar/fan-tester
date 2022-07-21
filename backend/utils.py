@@ -28,7 +28,7 @@ class FakeArduino:
         time.sleep(1)
         self.pwm += 50
 
-        if self.pwm > 2000 and self.iteration > 10:
+        if self.pwm >= 2000 and self.iteration > 10:
             self.running = False
             self.iteration = 0
             self.tensometer1 = 10.221
@@ -41,7 +41,6 @@ class FakeArduino:
             self.amperes += random.randint(10, 27) * 0.1
             self.voltage += random.randint(-200, 200) * 0.0001
             self.tensometer1 += random.randint(1000, 2000) * 0.1
-
 
         res = (json.dumps({
             'pwm': self.pwm,
@@ -120,6 +119,8 @@ def benchmark(name: str, soft_start: bool):
     db: Session = DBSession()
     db.add(data)
     db.commit()
+
+    time.sleep(2)
 
     states.clear()
 
